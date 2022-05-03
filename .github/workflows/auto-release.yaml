@@ -9,16 +9,6 @@ jobs:
   publish:
     runs-on: ["self-hosted", "mgmt-automation"]
     steps:
-      - name: Checkout
-        uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
-
-      - name: Setup Go
-        uses: actions/setup-go@v1
-        with:
-          go-version: 1.18
-
       # Get PR from merged commit to the default branch
       - uses: actions-ecosystem/action-get-merged-pull-request@v1
         id: get-merged-pull-request
@@ -34,6 +24,16 @@ jobs:
           config-name: auto-release.yml
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
+
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.18
 
       - name: GoReleaser
         uses: goreleaser/goreleaser-action@v1
