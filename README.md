@@ -17,20 +17,41 @@ You can download an archive file from [GitHub Releases](https://github.com/Brigh
 You can also use ksort as kubectl plugin. The name as kubectl plugin is `bai-config`.
 
 1. Install [krew](https://github.com/GoogleContainerTools/krew) that is a plugin manager for kubectl
-2. Run:
+1. Add this repository as a custom plugin index
+```shell
+$ kubectl krew index add bai-config https://github.com/BrightDotAi/kubectl-bai-config.git
+$ kubectl krew index list
+```
+1. To install the plugin, run:
+```shell
+$ kubectl krew install bai-config/bai-config
+```
+1. Try it out
+```shell
+$ kubectl bai-config
+Opening browser to https://brightdotai.app.spacelift.io/cli_login?key=<REDACTED>
 
-        kubectl krew install bai-config
+Waiting for login...
+Done!
 
-3. Try it out
+OIDC Authentication Details:
+app_oauth_client_id: 0oap28abzG5JlGvpU696
+auth_server_issuer_url: https://sso.bright.ai/oauth2/ausp29rqkAUwCyAqF696
 
-        kubectl bai-config
+Use the right arrow key or spacebar to select clusters to add to the kubeconfig:
+  [ ] cluster-0
+  [x] cluster-1
+> [x] cluster-2
+  [ ] cluster-3
 
-## Building
+Press [enter] to confirm.
+
+Press [q] to quit.
+```
+
+## Development: Build and Run
 
 ```shell
 $ goreleaser build --single-target --snapshot --rm-dist
+$ ./dist/kubectl-bai-config_darwin_arm64/kubectl-bai-config
 ```
-
-## License
-
-This software is released under the MIT License and includes the work that is distributed in the Apache License 2.0.

@@ -3,7 +3,7 @@ kind: Plugin
 metadata:
   name: bai-config
 spec:
-  version: v0.0.1
+  version: v0.3.0
   homepage: https://github.com/BrightDotAi/kubectl-bai-config
   shortDescription: Generate a kubeconfig for access to BrightAI Kubernetes clusters via Okta OIDC
   description: |
@@ -18,23 +18,23 @@ spec:
         matchLabels:
           os: darwin
           arch: amd64
-      uri: https://github.com/BrightDotAi/kubectl-bai-config/releases/download/v0.0.1/kubectl-bai-config_v0.0.1_darwin_amd64.tar.gz
+      uri: https://github.com/BrightDotAi/kubectl-bai-config/releases/download/v0.3.0/kubectl-bai-config_v0.3.0_darwin_amd64.tar.gz
       bin: kubectl-bai-config
     - selector:
         matchLabels:
           os: darwin
           arch: arm64
-      uri: https://github.com/BrightDotAi/kubectl-bai-config/releases/download/v0.0.1/kubectl-bai-config_v0.0.1_darwin_arm64.tar.gz
+      uri: https://github.com/BrightDotAi/kubectl-bai-config/releases/download/v0.3.0/kubectl-bai-config_v0.3.0_darwin_arm64.tar.gz
       bin: kubectl-bai-config
     - selector:
         matchLabels:
           os: linux
           arch: amd64
-      uri: https://github.com/BrightDotAi/kubectl-bai-config/releases/download/v0.0.1/kubectl-bai-config_v0.0.1_linux_amd64.tar.gz
+      uri: https://github.com/BrightDotAi/kubectl-bai-config/releases/download/v0.3.0/kubectl-bai-config_v0.3.0_linux_amd64.tar.gz
       bin: kubectl-bai-config
     - selector:
         matchLabels:
           os: windows
           arch: amd64
-      uri: https://github.com/BrightDotAi/kubectl-bai-config/releases/download/v0.0.1/kubectl-bai-config_v0.0.1_windows_amd64.tar.gz
+      uri: https://github.com/BrightDotAi/kubectl-bai-config/releases/download/v0.3.0/kubectl-bai-config_v0.3.0_windows_amd64.tar.gz
       bin: kubectl-bai-config.exe
