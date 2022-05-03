@@ -1,0 +1,24 @@
+name: kubectl-bai-config auto-release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  publish:
+    runs-on: ["self-hosted", "mgmt-automation"]
+    steps:
+      # Get PR from merged commit to the default branch
+      - uses: actions-ecosystem/action-get-merged-pull-request@v1
+        id: get-merged-pull-request
+        with:
+          github_token: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
+      # Drafts your next Release notes as Pull Requests are merged into the default branch
+      - uses: release-drafter/release-drafter@v5
+        with:
+          publish: ${{ !contains(steps.get-merged-pull-request.outputs.labels, 'no-release') }}
+          prerelease: false
+          config-name: auto-release.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
