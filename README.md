@@ -3,6 +3,12 @@
 A tool that generates a kubeconfig for access to BrightAI Kubernetes clusters via Okta OIDC.
 Can be installed as a `kubectl` plugin via `krew`.
 
+# Usage
+
+```shell
+$ kubectl bai-config
+```
+
 ## Installation
 You can download an archive file from [GitHub Releases](https://github.com/BrightDotAi/kubectl-bai-config/releases), then extract it and install a binary.
 
@@ -18,6 +24,12 @@ You can also use ksort as kubectl plugin. The name as kubectl plugin is `bai-con
 3. Try it out
 
         kubectl bai-config
+
+## Building
+
+```shell
+$ goreleaser build --single-target --snapshot --rm-dist
+```
 
 ## License
 
