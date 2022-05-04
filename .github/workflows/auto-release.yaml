@@ -27,7 +27,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
 
-      - uses: datamonsters/replace-action
+      - uses: datamonsters/replace-action@v2
         with:
           files: "krew.template.yaml"
           replacements: "$VERSION=${{ steps.release-drafter-pre.outputs.tag_name }}"
