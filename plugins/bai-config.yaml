@@ -1,0 +1,51 @@
+apiVersion: krew.googlecontainertools.github.com/v1alpha2
+kind: Plugin
+metadata:
+  name: bai-config
+spec:
+  version: v0.12.0
+  platforms:
+    - bin: kubectl-bai-config.exe
+      uri: https://github.com/BrightDotAi/kubectl-bai-config/releases/download/0.12.0/kubectl-bai-config_0.12.0_windows_amd64.tar.gz
+      sha256: 86832c24755b74f7aa97f50ac33f017f74c454d413e345a9da5d6c260fe37ee1
+      selector:
+        matchLabels:
+          os: windows
+          arch: amd64
+    - bin: kubectl-bai-config
+      uri: https://github.com/BrightDotAi/kubectl-bai-config/releases/download/0.12.0/kubectl-bai-config_0.12.0_linux_arm64.tar.gz
+      sha256: 2e0abb74b4e8fc2ad3b81a2ee496df87d8f62e248eded286acafdc4e856fc73f
+      selector:
+        matchLabels:
+          os: linux
+          arch: arm64
+    - bin: kubectl-bai-config
+      uri: https://github.com/BrightDotAi/kubectl-bai-config/releases/download/0.12.0/kubectl-bai-config_0.12.0_linux_amd64.tar.gz
+      sha256: c60bb7631ed9f5db4850594f3a3c2b3a583db292310d0b47cff9ad584e790d58
+      selector:
+        matchLabels:
+          os: linux
+          arch: amd64
+    - bin: kubectl-bai-config
+      uri: https://github.com/BrightDotAi/kubectl-bai-config/releases/download/0.12.0/kubectl-bai-config_0.12.0_darwin_arm64.tar.gz
+      sha256: 20cb59145b93f1fb1dd723006622a04af01f6e64577624dfbc3db0e1a62f4701
+      selector:
+        matchLabels:
+          os: darwin
+          arch: arm64
+    - bin: kubectl-bai-config
+      uri: https://github.com/BrightDotAi/kubectl-bai-config/releases/download/0.12.0/kubectl-bai-config_0.12.0_darwin_amd64.tar.gz
+      sha256: 634f0b5463bb1c55ca5d7ecfac7e3ad9d9e19a8aba2ac519db6ab75c7a162b67
+      selector:
+        matchLabels:
+          os: darwin
+          arch: amd64
+  shortDescription: Generate a kubeconfig for access to BrightAI Kubernetes clusters via Okta OIDC
+  homepage: https://github.com/BrightDotAi/kubectl-bai-config
+  caveats: |
+    * Users must have read access to the `EKS`` and `OKTA-OIDC-EKS-AUTH`
+    component outputs in Spacelift.
+  description: |
+    This plugin authenticates to BrightAI Spacelift and reads EKS and OIDC
+    stack outputs to generate a valid `kubeconfig` file for authentication
+    to BrightAI Kubernetes clusters.
