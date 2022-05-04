@@ -14,19 +14,19 @@ You can download an archive file from [GitHub Releases](https://github.com/Brigh
 
 ## Installation as kubectl plugin
 
-You can also use ksort as kubectl plugin. The name as kubectl plugin is `bai-config`.
+You can also use kubectl-bai-config as kubectl plugin. The name as kubectl plugin is `bai-config`.
 
 1. Install [krew](https://github.com/GoogleContainerTools/krew) that is a plugin manager for kubectl
-1. Add this repository as a custom plugin index
+2. Add this repository as a custom plugin index
 ```shell
 $ kubectl krew index add bai-config https://github.com/BrightDotAi/kubectl-bai-config.git
 $ kubectl krew index list
 ```
-1. To install the plugin, run:
+3. To install the plugin, run:
 ```shell
 $ kubectl krew install bai-config/bai-config
 ```
-1. Try it out
+4. Try it out
 ```shell
 $ kubectl bai-config
 Opening browser to https://brightdotai.app.spacelift.io/cli_login?key=<REDACTED>
