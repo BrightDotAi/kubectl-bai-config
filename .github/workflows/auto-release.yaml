@@ -2,6 +2,8 @@ name: kubectl-bai-config auto-release
 
 on:
   push:
+    paths-ignore:
+      - "plugins/bai-config.yaml"
     branches:
       - main
 
@@ -17,30 +19,6 @@ jobs:
         id: get-merged-pull-request
         with:
           github_token: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
-
-      - uses: release-drafter/release-drafter@v5
-        id: release-drafter-pre
-        with:
-          publish: false
-          prerelease: false
-          config-name: auto-release.yml
-        env:
-          GITHUB_TOKEN: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
-
-      - uses: datamonsters/replace-action@v2
-        with:
-          files: "krew.template.yaml"
-          replacements: "$VERSION=${{ steps.release-drafter-pre.outputs.tag_name }}"
-
-      - name: Update Plugin Manifest
-        run: cp krew.template.yaml plugins/bai-config.yaml
-
-      - name: Commit Plugin Manifest Update
-        uses: test-room-7/action-update-file@v1
-        with:
-          file-path: plugins/bai-config.yaml
-          commit-msg: Updating krew plugin manifest for ${{ steps.release-drafter-pre.outputs.tag_name }}
-          github-token: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
 
       # Publish Release
       - uses: release-drafter/release-drafter@v5
@@ -69,3 +47,20 @@ jobs:
           args: release --rm-dist
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
+
+      - name: Update plugin manifest version
+        uses: jacobtomlinson/gha-find-replace@v2
+        with:
+          include: "krew.template.yaml"
+          find: $VERSION
+          replace: ${{ steps.release-drafter-pre.outputs.tag_name }}
+
+      - name: Update Plugin Manifest
+        run: cp krew.template.yaml plugins/bai-config.yaml
+
+      - name: Commit Plugin Manifest Update
+        uses: test-room-7/action-update-file@v1
+        with:
+          file-path: plugins/bai-config.yaml
+          commit-msg: Updating krew plugin manifest for ${{ steps.release-drafter-pre.outputs.tag_name }}
+          github-token: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
