@@ -35,8 +35,8 @@ Waiting for login...
 Done!
 
 OIDC Authentication Details:
-app_oauth_client_id: 0oap28abzG5JlGvpU696
-auth_server_issuer_url: https://sso.bright.ai/oauth2/ausp29rqkAUwCyAqF696
+app_oauth_client_id: <REDACTED>
+auth_server_issuer_url: <REDACTED>
 
 Use the right arrow key or spacebar to select clusters to add to the kubeconfig:
   [ ] cluster-0
