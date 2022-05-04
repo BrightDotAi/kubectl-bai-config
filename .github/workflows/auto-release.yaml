@@ -44,20 +44,3 @@ jobs:
           args: release --rm-dist
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
-
-      - name: Update plugin manifest version
-        uses: jacobtomlinson/gha-find-replace@v2
-        with:
-          include: "krew.template.yaml"
-          find: "$VERSION"
-          replace: "${{ steps.release-drafter-pre.outputs.tag_name }}"
-
-      - name: Update Plugin Manifest
-        run: cp krew.template.yaml plugins/bai-config.yaml
-
-      - name: Commit Plugin Manifest Update
-        uses: test-room-7/action-update-file@v1
-        with:
-          file-path: plugins/bai-config.yaml
-          commit-msg: Updating krew plugin manifest for ${{ steps.release-drafter-pre.outputs.tag_name }}
-          github-token: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}

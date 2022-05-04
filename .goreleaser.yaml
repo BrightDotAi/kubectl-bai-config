@@ -26,3 +26,18 @@ archives:
     wrap_in_directory: "false"
     format: tar.gz
     files: []
+
+krews:
+  - name: bai-config
+    index:
+      owner: BrightDotAi
+      name: kubectl-bai-config
+    homepage: https://github.com/BrightDotAi/kubectl-bai-config
+    short_description: Generate a kubeconfig for access to BrightAI Kubernetes clusters via Okta OIDC
+    description: |
+      This plugin authenticates to BrightAI Spacelift and reads EKS and OIDC
+      stack outputs to generate a valid `kubeconfig` file for authentication
+      to BrightAI Kubernetes clusters.
+    caveats: |
+      * Users must have read access to the `EKS`` and `OKTA-OIDC-EKS-AUTH`
+      component outputs in Spacelift.
