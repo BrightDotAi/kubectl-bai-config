@@ -9,7 +9,7 @@ on:
 
 jobs:
   publish:
-    runs-on: ["self-hosted", "mgmt-automation"]
+    runs-on: ubuntu-18.04
     steps:
       # Get PR from merged commit to the default branch
       - uses: actions-ecosystem/action-get-merged-pull-request@v1

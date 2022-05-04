@@ -5,7 +5,7 @@ on:
 
 jobs:
   goreleaser:
-    runs-on: ["self-hosted", "mgmt-automation"]
+    runs-on: ubuntu-18.04
     steps:
       - name: Checkout kubectl-bai-config
         uses: actions/checkout@master
