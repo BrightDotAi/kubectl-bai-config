@@ -20,12 +20,24 @@ import (
 	"github.com/BrightDotAi/kubectl-bai-config/internal/spacelift/stack"
 )
 
+// Expand home directory for the default kubeconfig path
+func getDefaultKubeconfigPath() string {
+	usr, err := user.Current()
+	if err != nil {
+		return filepath.Join(os.Getenv("HOME"), ".kube", "config") // Fallback if user lookup fails
+	}
+	return filepath.Join(usr.HomeDir, ".kube", "config")
+}
+
+
 const (
 	SPACELIFT_ENDPOINT      = "https://brightdotai.app.spacelift.io/"
 	EKS_COMPONENT_LABEL     = "folder:component/eks"
 	OIDC_STACK_ID           = "mgmt-gbl-corp-okta-oidc-eks-auth"
-	DEFAULT_KUBECONFIG_PATH = "~/.kube/config"
 )
+
+// Use the expanded default kubeconfig path
+var DEFAULT_KUBECONFIG_PATH = getDefaultKubeconfigPath()
 
 type view uint
 
@@ -99,9 +111,10 @@ func initialModel() model {
 
 	ti := textinput.New()
 	ti.Placeholder = DEFAULT_KUBECONFIG_PATH
+	ti.SetValue(DEFAULT_KUBECONFIG_PATH) // Ensure default is prefilled
 	ti.Focus()
 	ti.CharLimit = 1024
-	ti.Width = 20
+	ti.Width = 40 // Widen input for readability
 
 	return model{
 		view:                   ClusterSelectView,
