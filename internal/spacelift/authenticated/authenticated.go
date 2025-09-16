@@ -1,6 +1,9 @@
 package authenticated
 
 import (
+	"context"
+	"net/http"
+
 	"github.com/spacelift-io/spacectl/client"
 	"github.com/spacelift-io/spacectl/client/session"
 )
@@ -8,17 +11,18 @@ import (
 // Client is the authenticated client that can be used by all CLI commands.
 var Client client.Client
 
-// Ensure is a way of ensuring that the Client exists, and it meant to be used
-// as a Before action for commands that need it.
+// Ensure initializes the Spacelift client using the provided credentials.
 func Ensure(creds session.StoredCredentials) error {
-	ctx, httpClient := session.Defaults()
+	// Create a new HTTP client
+	httpClient := &http.Client{}
 
-	session, err := creds.Session(ctx, httpClient)
+	// Create a new session using the credentials
+	sess, err := creds.Session(context.Background(), httpClient)
 	if err != nil {
 		return err
 	}
 
-	Client = client.New(httpClient, session)
-
+	// Initialize the Spacelift client
+	Client = client.New(httpClient, sess)
 	return nil
 }
