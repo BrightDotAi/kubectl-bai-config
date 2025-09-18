@@ -55,3 +55,4 @@ Press [q] to quit.
 $ goreleaser build --single-target --snapshot --rm-dist
 $ ./dist/kubectl-bai-config_darwin_arm64/kubectl-bai-config
 ```
+
