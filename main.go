@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/base64"
+	"flag"
 	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -14,9 +16,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	"github.com/BrightDotAi/kubectl-bai-config/internal/spacelift/authenticated"
-	"github.com/BrightDotAi/kubectl-bai-config/internal/spacelift/profile"
 	"github.com/BrightDotAi/kubectl-bai-config/internal/spacelift/stack"
-	spacectlSession "github.com/spacelift-io/spacectl/client/session"
+	"github.com/spacelift-io/spacectl/client/session"
 )
 
 const (
@@ -62,24 +63,35 @@ type model struct {
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	autoSelect := flag.String("select", "", "Auto-select clusters: 'dev', 'staging', 'prod', or 'all'")
+	flag.Parse()
+
+	p := tea.NewProgram(initialModel(*autoSelect))
 	if err := p.Start(); err != nil {
 		fmt.Printf("Error: %v\n", err)
 		os.Exit(1)
 	}
 }
 
-func initialModel() model {
-	// Spacelift login using API token (no browser)
-	storedCredentials := spacectlSession.StoredCredentials{
-		Type:     spacectlSession.CredentialsTypeAPIToken,
-		Endpoint: SPACELIFT_ENDPOINT,
-		APIToken: os.Getenv("SPACELIFT_API_TOKEN"), // get token from env
+func initialModel(autoSelectPattern string) model {
+	// Load stored credentials from spacectl profile
+	profileManager, err := session.UserProfileManager()
+	if err != nil {
+		fmt.Printf("Could not load profile manager: %v\n", err)
+		fmt.Println("Please run: spacectl profile login")
+		os.Exit(1)
 	}
 
-	// Ensure the client is authenticated
-	if err := authenticated.Ensure(storedCredentials); err != nil {
-		fmt.Printf("Could not login to Spacelift: %v\n", err)
+	profile := profileManager.Current()  // No error return, just one value
+	if profile == nil {
+		fmt.Println("No current profile found")
+		fmt.Println("Please run: spacectl profile login")
+		os.Exit(1)
+	}
+
+	// Initialize the authenticated client
+	if err := authenticated.Ensure(*profile.Credentials); err != nil {
+		fmt.Printf("Could not authenticate to Spacelift: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -108,16 +120,45 @@ func initialModel() model {
 	ti.CharLimit = 1024
 	ti.Width = 40
 
+	// Auto-select based on pattern
+	selected := make(map[int]struct{})
+	if autoSelectPattern != "" {
+		selected = autoSelectClusters(clusters, autoSelectPattern)
+	}
+
 	return model{
 		view:                   ClusterSelectView,
 		clusters:               clusters,
 		app_oauth_client_id:    appID,
 		auth_server_issuer_url: issuerURL,
-		selected:               make(map[int]struct{}),
+		selected:               selected,
 		kubeconfigPathInput:    ti,
 	}
 }
 
+func autoSelectClusters(clusters []cluster, pattern string) map[int]struct{} {
+	selected := make(map[int]struct{})
+
+	switch pattern {
+	case "all":
+		for i := range clusters {
+			selected[i] = struct{}{}
+		}
+	case "dev", "staging", "prod":
+		// Match pattern like: bai-<tenant>-<region>-<stage>-eks-cluster
+		// Changed from `-(%s)$` to `-(%s)-`
+		re := regexp.MustCompile(fmt.Sprintf(`-%s-`, pattern))
+		for i, cluster := range clusters {
+			if re.MatchString(cluster.id) {
+				selected[i] = struct{}{}
+			}
+		}
+	default:
+		fmt.Printf("Warning: unknown selection pattern '%s', valid options: dev, staging, prod, all\n", pattern)
+	}
+
+	return selected
+}
 
 // --- BubbleTea Update & View logic ---
 
