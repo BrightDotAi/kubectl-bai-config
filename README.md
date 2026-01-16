@@ -55,3 +55,13 @@ Press [q] to quit.
 $ goreleaser build --single-target --snapshot --rm-dist
 $ ./dist/kubectl-bai-config_darwin_arm64/kubectl-bai-config
 ```
+
+## Optional extras adding alias for login and configs
+# Add to your shell config (~/.zshrc or ~/.bashrc)
+```shell
+alias bai-config='(cd ~/brightai/kubectl-bai-config && ./dist/kubectl-bai-config_darwin_arm64_v8.0/kubectl-bai-config)'
+alias bai-config-dev='(cd ~/brightai/kubectl-bai-config && ./dist/kubectl-bai-config_darwin_arm64_v8.0/kubectl-bai-config -select dev)'
+alias bai-config-staging='(cd ~/brightai/kubectl-bai-config && ./dist/kubectl-bai-config_darwin_arm64_v8.0/kubectl-bai-config -select staging)'
+alias bai-config-prod='(cd ~/brightai/kubectl-bai-config && ./dist/kubectl-bai-config_darwin_arm64_v8.0/kubectl-bai-config -select prod)'
+alias bai-config-all='(cd ~/brightai/kubectl-bai-config && ./dist/kubectl-bai-config_darwin_arm64_v8.0/kubectl-bai-config -select all)'
+```
