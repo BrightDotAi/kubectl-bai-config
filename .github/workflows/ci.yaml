@@ -1,4 +1,6 @@
 name: kubectl-bai-config ci
+permissions:
+  contents: read
 
 on:
   pull_request:
