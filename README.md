@@ -6,8 +6,10 @@ Can be installed as a `kubectl` plugin via `krew`.
 # Usage
 
 ```shell
-$ kubectl bai-config
+$ kubectl bai-config [--auth auto|api|browser]
 ```
+
+`--auth` picks the Spacelift login: `api` uses your current `spacectl` profile (`spacectl profile login`), `browser` opens the web login, and `auto` (default) uses the profile when present and falls back to the browser.
 
 On macOS the generated kubeconfig points kubelogin at `~/.kube/bai-browser-open` (written by this tool), which opens the hourly Okta OIDC login in the background (`open -g`) instead of stealing focus. If a login needs interaction (expired Okta session, MFA), check your browser for the background tab.
 

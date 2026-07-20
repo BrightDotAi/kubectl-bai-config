@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/base64"
+	"flag"
 	"fmt"
 	"os"
 	"os/user"
@@ -62,15 +63,24 @@ type model struct {
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	authMethod := flag.String("auth", "auto", "Spacelift auth method: auto, api (spacectl profile), or browser")
+	flag.Parse()
+	switch *authMethod {
+	case "auto", "api", "browser":
+	default:
+		fmt.Printf("invalid --auth value %q (want auto, api, or browser)\n", *authMethod)
+		os.Exit(1)
+	}
+
+	p := tea.NewProgram(initialModel(*authMethod))
 	if err := p.Start(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
 	}
 }
 
-func initialModel() model {
-	// Login To Spacelift
+// loginUsingWebBrowser runs the interactive Spacelift browser login.
+func loginUsingWebBrowser() {
 	storedCredentials := spacectlSession.StoredCredentials{
 		Type:     spacectlSession.CredentialsTypeAPIToken,
 		Endpoint: SPACELIFT_ENDPOINT,
@@ -80,8 +90,54 @@ func initialModel() model {
 		fmt.Printf("Could not login to Spacelift: %v", err)
 		os.Exit(1)
 	}
+}
+
+// spacectlProfileCredentials returns the current spacectl profile's credentials
+// when it targets SPACELIFT_ENDPOINT, nil otherwise.
+func spacectlProfileCredentials() *spacectlSession.StoredCredentials {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	manager, err := spacectlSession.NewProfileManager(filepath.Join(home, spacectlSession.SpaceliftConfigDirectory))
+	if err != nil {
+		return nil
+	}
+	p := manager.Current()
+	if p == nil || p.Credentials == nil ||
+		strings.TrimRight(p.Credentials.Endpoint, "/") != strings.TrimRight(SPACELIFT_ENDPOINT, "/") {
+		return nil
+	}
+	return p.Credentials
+}
+
+func initialModel(authMethod string) model {
+	// Login To Spacelift: prefer the spacectl profile, browser as fallback
+	usedProfile := false
+	if authMethod != "browser" {
+		if creds := spacectlProfileCredentials(); creds != nil {
+			if err := authenticated.Ensure(*creds); err == nil {
+				fmt.Println("Using spacectl profile credentials")
+				usedProfile = true
+			} else if authMethod == "api" {
+				fmt.Printf("Could not login with the spacectl profile: %v\n", err)
+				os.Exit(1)
+			}
+		} else if authMethod == "api" {
+			fmt.Printf("--auth=api: no spacectl profile for %s — run `spacectl profile login` first\n", SPACELIFT_ENDPOINT)
+			os.Exit(1)
+		}
+	}
+	if !usedProfile {
+		loginUsingWebBrowser()
+	}
 
 	query, err := stack.GetStackOutputs()
+	if err != nil && usedProfile && authMethod == "auto" {
+		// profile token may be stale (browser-type profiles) — retry via browser
+		loginUsingWebBrowser()
+		query, err = stack.GetStackOutputs()
+	}
 	if err != nil {
 		fmt.Printf("Could not get stack outputs: %v", err)
 		os.Exit(1)
