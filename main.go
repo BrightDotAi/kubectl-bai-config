@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/textinput"
@@ -323,7 +324,7 @@ func (m model) writeKubeConfig() error {
 			APIVersion: "client.authentication.k8s.io/v1beta1",
 			Command:    "kubectl",
 			Env:        []api.ExecEnvVar{},
-			Args: []string{
+			Args: append([]string{
 				"oidc-login",
 				"get-token",
 				"--oidc-issuer-url=" + m.auth_server_issuer_url,
@@ -332,7 +333,7 @@ func (m model) writeKubeConfig() error {
 				"--oidc-extra-scope=offline_access",
 				"--oidc-extra-scope=profile",
 				"--oidc-extra-scope=openid",
-			},
+			}, browserCommandArgs()...),
 			InteractiveMode:    api.IfAvailableExecInteractiveMode,
 			ProvideClusterInfo: false,
 		},
@@ -350,6 +351,28 @@ func (m model) writeKubeConfig() error {
 	kubeconfig.CurrentContext = m.clusters[0].id
 
 	return clientcmd.WriteToFile(*kubeconfig, kubeconfigPath)
+}
+
+// browserCommandArgs writes a background-open wrapper and returns the kubelogin arg
+// pointing at it (macOS only; kubelogin execs the value as a single binary, no shell).
+func browserCommandArgs() []string {
+	if runtime.GOOS != "darwin" {
+		return nil
+	}
+	usr, err := user.Current()
+	if err != nil {
+		return nil
+	}
+	wrapper := filepath.Join(usr.HomeDir, ".kube", "bai-browser-open")
+	script := "#!/bin/sh\n# Written by kubectl bai-config: open the OIDC login URL without stealing focus.\nexec /usr/bin/open -g \"$@\"\n"
+	if err := os.MkdirAll(filepath.Dir(wrapper), 0o755); err != nil {
+		return nil
+	}
+	if err := os.WriteFile(wrapper, []byte(script), 0o755); err != nil {
+		return nil
+	}
+	_ = os.Chmod(wrapper, 0o755) // WriteFile perm applies only on create
+	return []string{"--browser-command=" + wrapper}
 }
 
 func contains(s []string, e string) bool {

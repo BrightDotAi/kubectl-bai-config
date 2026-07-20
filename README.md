@@ -9,6 +9,8 @@ Can be installed as a `kubectl` plugin via `krew`.
 $ kubectl bai-config
 ```
 
+On macOS the generated kubeconfig points kubelogin at `~/.kube/bai-browser-open` (written by this tool), which opens the hourly Okta OIDC login in the background (`open -g`) instead of stealing focus. If a login needs interaction (expired Okta session, MFA), check your browser for the background tab.
+
 ## Installation
 You can download an archive file from [GitHub Releases](https://github.com/BrightDotAi/kubectl-bai-config/releases), then extract it and install a binary.
 
