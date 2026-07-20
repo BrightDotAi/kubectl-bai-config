@@ -58,6 +58,7 @@ type model struct {
 	cursor                 int              // which cluster item our cursor is pointing at
 	selected               map[int]struct{} // which cluster items are selected
 	kubeconfigPathInput    textinput.Model
+	height                 int // terminal height, from tea.WindowSizeMsg
 }
 
 func main() {
@@ -123,6 +124,11 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	cmd = nil
+
+	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		m.height = size.Height
+		return m, nil
+	}
 
 	switch m.view {
 	case ClusterSelectView:
@@ -213,8 +219,13 @@ func (m model) View() string {
 
 		s += "Use the right arrow key or spacebar to select clusters to add to the kubeconfig:\n"
 
-		// Iterate over our clusters
-		for i, cluster := range m.clusters {
+		// Window the list to the terminal height — a view taller than the screen
+		// makes the bubbletea inline renderer drop the lines that scroll off.
+		start, end := listWindow(len(m.clusters), m.cursor, m.height)
+		if start > 0 {
+			s += fmt.Sprintf("  ↑ %d more\n", start)
+		}
+		for i := start; i < end; i++ {
 
 			// Is the cursor pointing at this cluster?
 			cursor := " " // no cursor
@@ -229,7 +240,10 @@ func (m model) View() string {
 			}
 
 			// Render the row
-			s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, cluster.id)
+			s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, m.clusters[i].id)
+		}
+		if end < len(m.clusters) {
+			s += fmt.Sprintf("  ↓ %d more\n", len(m.clusters)-end)
 		}
 
 		// The footer
@@ -242,8 +256,12 @@ func (m model) View() string {
 		s += fmt.Sprintf("app_oauth_client_id: %s\n", m.app_oauth_client_id)
 		s += fmt.Sprintf("auth_server_issuer_url: %s\n\n", m.auth_server_issuer_url)
 		s += "Selected clusters:\n"
-		for _, cluster := range m.clusters {
+		_, end := listWindow(len(m.clusters), 0, m.height)
+		for _, cluster := range m.clusters[:end] {
 			s += "\t" + cluster.id + "\n"
+		}
+		if end < len(m.clusters) {
+			s += fmt.Sprintf("\t… and %d more\n", len(m.clusters)-end)
 		}
 
 		// kubeconfig path text input
@@ -373,6 +391,29 @@ func browserCommandArgs() []string {
 	}
 	_ = os.Chmod(wrapper, 0o755) // WriteFile perm applies only on create
 	return []string{"--browser-command=" + wrapper}
+}
+
+// listWindow returns the [start, end) item range that keeps the cursor visible;
+// 14 chrome lines reserved — one line over terminal height corrupts the repaint.
+func listWindow(total, cursor, height int) (int, int) {
+	visible := total
+	if height > 0 && height-14 < visible {
+		visible = height - 14
+		if visible < 3 {
+			visible = 3
+		}
+	}
+	start := 0
+	if cursor >= visible {
+		start = cursor - visible + 1
+	}
+	if start+visible > total {
+		start = total - visible
+		if start < 0 {
+			start = 0
+		}
+	}
+	return start, start + visible
 }
 
 func contains(s []string, e string) bool {
