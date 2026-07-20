@@ -183,7 +183,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
 			switch msg.Type {
+			case tea.KeyTab, tea.KeyRight:
+				if m.kubeconfigPathInput.Value() == "" {
+					m.kubeconfigPathInput.SetValue(DEFAULT_KUBECONFIG_PATH)
+					m.kubeconfigPathInput.CursorEnd()
+				}
+
 			case tea.KeyEnter:
+				if m.kubeconfigPathInput.Value() == "" {
+					// empty input previously wrote the kubeconfig to path ""
+					m.kubeconfigPathInput.SetValue(DEFAULT_KUBECONFIG_PATH)
+				}
 				fmt.Printf("SELECTED PATH: %s", m.kubeconfigPathInput.Value())
 				m.view = KubeConfigWriteView
 
@@ -268,7 +278,7 @@ func (m model) View() string {
 		s += fmt.Sprintf("Enter the path to the kubeconfig file to write to: %s\n", m.kubeconfigPathInput.View())
 
 		// The footer
-		s += "\nPress [enter] to confirm.\n"
+		s += "\nPress [tab] to fill the suggested path, [enter] to confirm.\n"
 		s += "\nPress [CTRL+C] or [ESC] to quit.\n"
 	case KubeConfigWriteView:
 	}
