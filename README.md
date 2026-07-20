@@ -13,6 +13,8 @@ $ kubectl bai-config [--auth auto|api|browser] [--select-all]
 
 `--write-all` skips the interactive UI entirely and writes a kubeconfig with all clusters; `--kubeconfig <path>` overrides the destination (default `~/.kube/config`).
 
+An existing kubeconfig is backed up next to itself with a `__yyyy_mm_dd__hh_mm` suffix before overwriting; disable with `--backup=false`.
+
 `--auth` picks the Spacelift login: `api` uses your current `spacectl` profile (`spacectl profile login`), `browser` opens the web login, and `auto` (default) uses the profile when present and falls back to the browser.
 
 On macOS the generated kubeconfig points kubelogin at `~/.kube/bai-browser-open` (written by this tool), which opens the hourly Okta OIDC login in the background (`open -g`) instead of stealing focus. If a login needs interaction (expired Okta session, MFA), check your browser for the background tab.

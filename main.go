@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -59,7 +60,8 @@ type model struct {
 	cursor                 int              // which cluster item our cursor is pointing at
 	selected               map[int]struct{} // which cluster items are selected
 	kubeconfigPathInput    textinput.Model
-	height                 int // terminal height, from tea.WindowSizeMsg
+	height                 int  // terminal height, from tea.WindowSizeMsg
+	backup                 bool // back up an existing kubeconfig before overwriting
 }
 
 func main() {
@@ -67,6 +69,7 @@ func main() {
 	selectAll := flag.Bool("select-all", false, "pre-select all clusters")
 	writeAll := flag.Bool("write-all", false, "skip the interactive UI and write all clusters")
 	kubeconfigPath := flag.String("kubeconfig", DEFAULT_KUBECONFIG_PATH, "kubeconfig path to write with --write-all")
+	backup := flag.Bool("backup", true, "back up an existing kubeconfig before overwriting")
 	flag.Parse()
 	switch *authMethod {
 	case "auto", "api", "browser":
@@ -76,7 +79,7 @@ func main() {
 	}
 
 	if *writeAll {
-		m := initialModel(*authMethod, true)
+		m := initialModel(*authMethod, true, *backup)
 		m.kubeconfigPathInput.SetValue(*kubeconfigPath)
 		if err := m.writeKubeConfig(); err != nil {
 			fmt.Printf("Could not write kubeconfig: %s\n", err)
@@ -85,7 +88,7 @@ func main() {
 		return
 	}
 
-	p := tea.NewProgram(initialModel(*authMethod, *selectAll))
+	p := tea.NewProgram(initialModel(*authMethod, *selectAll, *backup))
 	if err := p.Start(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
@@ -124,7 +127,7 @@ func spacectlProfileCredentials() *spacectlSession.StoredCredentials {
 	return p.Credentials
 }
 
-func initialModel(authMethod string, selectAll bool) model {
+func initialModel(authMethod string, selectAll, backup bool) model {
 	// Login To Spacelift: prefer the spacectl profile, browser as fallback
 	usedProfile := false
 	if authMethod != "browser" {
@@ -189,6 +192,7 @@ func initialModel(authMethod string, selectAll bool) model {
 		auth_server_issuer_url: auth_server_issuer_url,
 		selected:               selected,
 		kubeconfigPathInput:    ti,
+		backup:                 backup,
 	}
 }
 
@@ -415,6 +419,17 @@ const (
 
 func (m model) writeKubeConfig() error {
 	kubeconfigPath := expandPath(m.kubeconfigPathInput.Value())
+	if m.backup {
+		if _, err := os.Stat(kubeconfigPath); err == nil {
+			// not time.Format: "_2" in a layout is the padded-day token and corrupts the name
+			t := time.Now()
+			backupPath := kubeconfigPath + fmt.Sprintf("__%04d_%02d_%02d__%02d_%02d", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute())
+			if err := os.Rename(kubeconfigPath, backupPath); err != nil {
+				return fmt.Errorf("could not back up existing kubeconfig: %w", err)
+			}
+			fmt.Printf("Backed up existing kubeconfig to %s\n", backupPath)
+		}
+	}
 	fmt.Printf("Writing kubeconfig with %d clusters to %s\n", len(m.clusters), kubeconfigPath)
 	// Construct the kubeconfig
 	kubeconfig := api.NewConfig()
