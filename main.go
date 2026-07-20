@@ -64,6 +64,7 @@ type model struct {
 
 func main() {
 	authMethod := flag.String("auth", "auto", "Spacelift auth method: auto, api (spacectl profile), or browser")
+	selectAll := flag.Bool("select-all", false, "pre-select all clusters")
 	flag.Parse()
 	switch *authMethod {
 	case "auto", "api", "browser":
@@ -72,7 +73,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	p := tea.NewProgram(initialModel(*authMethod))
+	p := tea.NewProgram(initialModel(*authMethod, *selectAll))
 	if err := p.Start(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
@@ -111,7 +112,7 @@ func spacectlProfileCredentials() *spacectlSession.StoredCredentials {
 	return p.Credentials
 }
 
-func initialModel(authMethod string) model {
+func initialModel(authMethod string, selectAll bool) model {
 	// Login To Spacelift: prefer the spacectl profile, browser as fallback
 	usedProfile := false
 	if authMethod != "browser" {
@@ -161,13 +162,20 @@ func initialModel(authMethod string) model {
 	ti.CharLimit = 1024
 	ti.Width = 20
 
+	selected := make(map[int]struct{})
+	if selectAll {
+		for i := range clusters {
+			selected[i] = struct{}{}
+		}
+	}
+
 	return model{
 		view:                   ClusterSelectView,
 		client:                 authenticated.Client,
 		clusters:               clusters,
 		app_oauth_client_id:    app_oauth_client_id,
 		auth_server_issuer_url: auth_server_issuer_url,
-		selected:               make(map[int]struct{}),
+		selected:               selected,
 		kubeconfigPathInput:    ti,
 	}
 }

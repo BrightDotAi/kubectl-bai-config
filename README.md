@@ -6,8 +6,10 @@ Can be installed as a `kubectl` plugin via `krew`.
 # Usage
 
 ```shell
-$ kubectl bai-config [--auth auto|api|browser]
+$ kubectl bai-config [--auth auto|api|browser] [--select-all]
 ```
+
+`--select-all` starts the cluster list with every cluster pre-selected.
 
 `--auth` picks the Spacelift login: `api` uses your current `spacectl` profile (`spacectl profile login`), `browser` opens the web login, and `auto` (default) uses the profile when present and falls back to the browser.
 
