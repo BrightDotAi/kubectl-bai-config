@@ -65,12 +65,24 @@ type model struct {
 func main() {
 	authMethod := flag.String("auth", "auto", "Spacelift auth method: auto, api (spacectl profile), or browser")
 	selectAll := flag.Bool("select-all", false, "pre-select all clusters")
+	writeAll := flag.Bool("write-all", false, "skip the interactive UI and write all clusters")
+	kubeconfigPath := flag.String("kubeconfig", DEFAULT_KUBECONFIG_PATH, "kubeconfig path to write with --write-all")
 	flag.Parse()
 	switch *authMethod {
 	case "auto", "api", "browser":
 	default:
 		fmt.Printf("invalid --auth value %q (want auto, api, or browser)\n", *authMethod)
 		os.Exit(1)
+	}
+
+	if *writeAll {
+		m := initialModel(*authMethod, true)
+		m.kubeconfigPathInput.SetValue(*kubeconfigPath)
+		if err := m.writeKubeConfig(); err != nil {
+			fmt.Printf("Could not write kubeconfig: %s\n", err)
+			os.Exit(1)
+		}
+		return
 	}
 
 	p := tea.NewProgram(initialModel(*authMethod, *selectAll))
@@ -403,7 +415,7 @@ const (
 
 func (m model) writeKubeConfig() error {
 	kubeconfigPath := expandPath(m.kubeconfigPathInput.Value())
-	fmt.Printf("Writing kubeconfig to %s \n", kubeconfigPath)
+	fmt.Printf("Writing kubeconfig with %d clusters to %s\n", len(m.clusters), kubeconfigPath)
 	// Construct the kubeconfig
 	kubeconfig := api.NewConfig()
 	kubeconfig.Kind = "Config"
