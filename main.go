@@ -62,6 +62,7 @@ type model struct {
 	kubeconfigPathInput    textinput.Model
 	height                 int  // terminal height, from tea.WindowSizeMsg
 	backup                 bool // back up an existing kubeconfig before overwriting
+	written                bool // guards writeKubeConfig against firing twice
 }
 
 func main() {
@@ -101,7 +102,10 @@ func loginUsingWebBrowser() {
 		Type:     spacectlSession.CredentialsTypeAPIToken,
 		Endpoint: SPACELIFT_ENDPOINT,
 	}
-	profile.LoginUsingWebBrowser(&storedCredentials)
+	if err := profile.LoginUsingWebBrowser(&storedCredentials); err != nil {
+		fmt.Printf("Could not login to Spacelift: %v\n", err)
+		os.Exit(1)
+	}
 	if err := authenticated.Ensure(storedCredentials); err != nil {
 		fmt.Printf("Could not login to Spacelift: %v", err)
 		os.Exit(1)
@@ -284,6 +288,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.kubeconfigPathInput, cmd = m.kubeconfigPathInput.Update(msg)
 
 	case KubeConfigWriteView:
+		// a queued message can re-enter before quitMsg lands — a second write
+		// would clobber the just-made backup with the freshly generated config
+		if m.written {
+			return m, tea.Quit
+		}
+		m.written = true
 		err := m.writeKubeConfig()
 		if err != nil {
 			fmt.Printf("Could not write kubeconfig: %s\n", err)
@@ -418,13 +428,21 @@ const (
 )
 
 func (m model) writeKubeConfig() error {
+	if len(m.clusters) == 0 {
+		return fmt.Errorf("no clusters selected")
+	}
 	kubeconfigPath := expandPath(m.kubeconfigPathInput.Value())
 	if m.backup {
 		if _, err := os.Stat(kubeconfigPath); err == nil {
+			// rename the symlink target, not the symlink, so dotfiles setups survive
+			backupSrc := kubeconfigPath
+			if resolved, err := filepath.EvalSymlinks(kubeconfigPath); err == nil {
+				backupSrc = resolved
+			}
 			// not time.Format: "_2" in a layout is the padded-day token and corrupts the name
 			t := time.Now()
-			backupPath := kubeconfigPath + fmt.Sprintf("__%04d_%02d_%02d__%02d_%02d", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute())
-			if err := os.Rename(kubeconfigPath, backupPath); err != nil {
+			backupPath := backupSrc + fmt.Sprintf("__%04d_%02d_%02d__%02d_%02d", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute())
+			if err := os.Rename(backupSrc, backupPath); err != nil {
 				return fmt.Errorf("could not back up existing kubeconfig: %w", err)
 			}
 			fmt.Printf("Backed up existing kubeconfig to %s\n", backupPath)
@@ -502,6 +520,9 @@ func listWindow(total, cursor, height int) (int, int) {
 		visible = height - 14
 		if visible < 3 {
 			visible = 3
+		}
+		if visible > total {
+			visible = total
 		}
 	}
 	start := 0

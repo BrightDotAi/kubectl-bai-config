@@ -6,7 +6,7 @@ Can be installed as a `kubectl` plugin via `krew`.
 # Usage
 
 ```shell
-$ kubectl bai-config [--auth auto|api|browser] [--select-all]
+$ kubectl bai-config [--auth auto|api|browser] [--select-all] [--write-all] [--kubeconfig <path>] [--backup=false]
 ```
 
 `--select-all` starts the cluster list with every cluster pre-selected.
