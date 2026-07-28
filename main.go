@@ -441,7 +441,10 @@ func (m model) writeKubeConfig() error {
 			}
 			// not time.Format: "_2" in a layout is the padded-day token and corrupts the name
 			t := time.Now()
-			backupPath := backupSrc + fmt.Sprintf("__%04d_%02d_%02d__%02d_%02d", t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute())
+			// seconds included: os.Rename clobbers, so a minute-granular name lets a second
+			// run in the same minute overwrite the first backup with the config it just wrote
+			backupPath := backupSrc + fmt.Sprintf("__%04d_%02d_%02d__%02d_%02d_%02d",
+				t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
 			if err := os.Rename(backupSrc, backupPath); err != nil {
 				return fmt.Errorf("could not back up existing kubeconfig: %w", err)
 			}
