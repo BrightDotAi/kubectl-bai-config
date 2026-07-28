@@ -67,7 +67,9 @@ jobs:
           done
           commit="$(git commit-tree "$(git write-tree)" -m "artifacts: bai-config ${TAG}")"
           unset GIT_INDEX_FILE
-          git push origin "${commit}:refs/artifacts/${TAG//./-}"
+          # --force so re-running a failed release can repair the ref: these commits are
+          # parentless, so a retry never fast-forwards and would be rejected otherwise
+          git push --force origin "${commit}:refs/artifacts/${TAG//./-}"
           echo "published refs/artifacts/${TAG//./-}"
 
       # Deleting the ref makes its blobs unreachable, so archives do not accumulate.
