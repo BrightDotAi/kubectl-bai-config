@@ -50,35 +50,37 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
 
-      # The krew manifest GoReleaser just pushed points here; users only see it after
-      # `kubectl krew update`, so the few seconds this branch lags behind are invisible.
-      - name: Publish plugin archives to the artifacts branch
+      # refs/artifacts/* sits outside refs/heads/*, so no clone or `krew update` ever
+      # fetches these archives; a dot in the ref name breaks raw's ref/path split.
+      - name: Publish plugin archives to refs/artifacts
         env:
           TAG: ${{ steps.release-drafter.outputs.tag_name }}
         run: |
           set -euo pipefail
-          staging="$(mktemp -d)"
-          cp dist/*.tar.gz "$staging/"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch --orphan "artifacts-${TAG}"
-          mkdir -p "artifacts/bai-config/${TAG}"
-          cp "$staging"/*.tar.gz "artifacts/bai-config/${TAG}/"
-          git add "artifacts/bai-config/${TAG}"
-          git commit -m "chore: publish bai-config ${TAG} plugin archives"
-          git push origin "artifacts-${TAG}"
+          export GIT_INDEX_FILE="$(mktemp -u)"
+          for archive in dist/*.tar.gz; do
+            blob="$(git hash-object -w "${archive}")"
+            git update-index --add \
+              --cacheinfo "100644,${blob},artifacts/bai-config/${TAG}/$(basename "${archive}")"
+          done
+          commit="$(git commit-tree "$(git write-tree)" -m "artifacts: bai-config ${TAG}")"
+          unset GIT_INDEX_FILE
+          git push origin "${commit}:refs/artifacts/${TAG//./-}"
+          echo "published refs/artifacts/${TAG//./-}"
 
-      # Deleting the branch makes its blobs unreachable, so archives do not accumulate.
-      - name: Prune superseded artifact branches
+      # Deleting the ref makes its blobs unreachable, so archives do not accumulate.
+      - name: Prune superseded artifact refs
         env:
           KEEP: 3
         run: |
           set -euo pipefail
-          git ls-remote --heads origin 'artifacts-*' \
-            | sed 's#.*refs/heads/##' \
+          git ls-remote origin 'refs/artifacts/*' \
+            | sed 's#.*refs/artifacts/##' \
             | sort -V \
             | awk -v keep="${KEEP}" '{seen[NR]=$0} END {for (i=1; i<=NR-keep; i++) print seen[i]}' \
             | while read -r stale; do
-                echo "pruning ${stale}"
-                git push origin --delete "${stale}"
+                echo "pruning refs/artifacts/${stale}"
+                git push origin ":refs/artifacts/${stale}"
               done

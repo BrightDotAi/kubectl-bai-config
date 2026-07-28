@@ -34,9 +34,9 @@ krews:
     repository:
       owner: BrightDotAi
       name: kubectl-bai-config
-    # archives live on a per-release orphan branch, not Releases: private repos 404 on
-    # release assets under every token form, while raw.githubusercontent.com honours a PAT
-    url_template: "https://raw.githubusercontent.com/BrightDotAi/kubectl-bai-config/artifacts-{{ .Tag }}/artifacts/bai-config/{{ .Tag }}/{{ .ArtifactName }}"
+    # refs/artifacts/* is outside refs/heads/*, so `krew update` never fetches it;
+    # the ref name must stay dot-free or raw.githubusercontent.com 404s on ref/path split
+    url_template: "https://raw.githubusercontent.com/BrightDotAi/kubectl-bai-config/refs/artifacts/{{ replace .Tag \".\" \"-\" }}/artifacts/bai-config/{{ .Tag }}/{{ .ArtifactName }}"
     homepage: https://github.com/BrightDotAi/kubectl-bai-config
     short_description: Generate a kubeconfig for access to BrightAI Kubernetes clusters via Okta OIDC
     description: |

@@ -24,13 +24,19 @@ You can download an archive file from [GitHub Releases](https://github.com/Brigh
 
 ### Where the plugin archives are served from
 
-The krew manifest points at `raw.githubusercontent.com`, on a per-release orphan branch
-`artifacts-<version>` under `artifacts/bai-config/<version>/`. Releases still carry the same
-archives for direct download, but krew does not use them: GitHub returns 404 for release assets
-on a private repository under every form of token auth, whereas `raw.githubusercontent.com`
-honours a PAT. This keeps installs working unchanged if the repository is ever made private.
-Only the most recent few artifact branches are kept — deleting a branch makes its blobs
-unreachable, so archives do not accumulate.
+The krew manifest points at `raw.githubusercontent.com`, on the custom ref
+`refs/artifacts/<version-with-dashes>` under `artifacts/bai-config/<version>/`. Releases still
+carry the same archives for direct download, but krew does not use them: GitHub returns 404 for
+release assets on a private repository under every form of token auth, whereas
+`raw.githubusercontent.com` honours a PAT. This keeps installs working unchanged if the
+repository is ever made private.
+
+`refs/artifacts/*` deliberately sits outside `refs/heads/*`. Krew clones this repository as its
+index with a plain `git clone`, which fetches every branch — so archives on a branch would land
+on every user's disk on each `kubectl krew update`. A custom ref namespace is never fetched,
+while `raw.githubusercontent.com` still serves it. Two constraints follow: the ref name must be
+dot-free, or raw cannot tell where the ref ends and the path begins, and only the most recent
+few refs are kept, since deleting one makes its blobs unreachable.
 
 If the repository is private, generate a fine-grained PAT with read-only `contents` and
 `metadata`, add it to `~/.netrc`, and pass `--enable-netrc`:
