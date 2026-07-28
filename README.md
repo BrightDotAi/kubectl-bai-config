@@ -1,4 +1,4 @@
-# kubctl bai-config
+# kubectl bai-config
 
 A tool that generates a kubeconfig for access to BrightAI Kubernetes clusters via Okta OIDC.
 Can be installed as a `kubectl` plugin via `krew`.
@@ -70,7 +70,7 @@ to resolve it.
 
 You can also use kubectl-bai-config as kubectl plugin. The name as kubectl plugin is `bai-config`.
 
-1. Install [krew](https://github.com/GoogleContainerTools/krew) that is a plugin manager for kubectl
+1. Install [krew](https://github.com/kubernetes-sigs/krew) that is a plugin manager for kubectl
 2. Add this repository as a custom plugin index
 ```shell
 $ kubectl krew index add bai-config https://github.com/BrightDotAi/kubectl-bai-config.git
@@ -83,10 +83,7 @@ $ kubectl krew install bai-config/bai-config
 4. Try it out
 ```shell
 $ kubectl bai-config
-Opening browser to https://brightdotai.app.spacelift.io/cli_login?key=<REDACTED>
-
-Waiting for login...
-Done!
+Using spacectl profile credentials
 
 OIDC Authentication Details:
 app_oauth_client_id: <REDACTED>
@@ -103,9 +100,21 @@ Press [enter] to confirm.
 Press [q] to quit.
 ```
 
+Without a `spacectl` profile it falls back to the browser login and prints
+`Opening browser to https://brightdotai.app.spacelift.io/cli_login?key=...` instead of the
+first line. After confirming, it prompts for the kubeconfig path — `[tab]` fills the suggestion.
+
 ## Development: Build and Run
 
 ```shell
-$ goreleaser build --single-target --snapshot --rm-dist
-$ ./dist/kubectl-bai-config_darwin_arm64/kubectl-bai-config
+$ goreleaser build --single-target --snapshot --clean
+$ ./dist/kubectl-bai-config_darwin_arm64_v8.0/kubectl-bai-config
+```
+
+Requires GoReleaser v2 (`--rm-dist` was removed in v2 in favour of `--clean`). To check the
+release config or produce all five platform archives locally without publishing:
+
+```shell
+$ goreleaser check
+$ goreleaser release --snapshot --clean
 ```
