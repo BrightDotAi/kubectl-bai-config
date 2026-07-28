@@ -5,13 +5,24 @@ Can be installed as a `kubectl` plugin via `krew`.
 
 # Usage
 
+Most people want every cluster in their kubeconfig, so this is the usual invocation — it skips
+the interactive picker entirely and writes them all to `~/.kube/config`:
+
+```shell
+$ kubectl bai-config --write-all
+```
+
+Run it with no flags instead if you want the interactive picker and a hand-picked subset.
+
+Full synopsis:
+
 ```shell
 $ kubectl bai-config [--auth auto|api|browser] [--select-all] [--write-all] [--kubeconfig <path>] [--backup=false]
 ```
 
-`--select-all` starts the cluster list with every cluster pre-selected.
+`--select-all` starts the interactive cluster list with every cluster pre-selected.
 
-`--write-all` skips the interactive UI entirely and writes a kubeconfig with all clusters; `--kubeconfig <path>` overrides the destination (default `~/.kube/config`).
+`--kubeconfig <path>` overrides where `--write-all` writes (default `~/.kube/config`).
 
 An existing kubeconfig is backed up next to itself with a `__yyyy_mm_dd__hh_mm_ss` suffix before overwriting; disable with `--backup=false`.
 
