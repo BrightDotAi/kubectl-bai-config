@@ -22,6 +22,33 @@ On macOS the generated kubeconfig points kubelogin at `~/.kube/bai-browser-open`
 ## Installation
 You can download an archive file from [GitHub Releases](https://github.com/BrightDotAi/kubectl-bai-config/releases), then extract it and install a binary.
 
+### Where the plugin archives are served from
+
+The krew manifest points at `raw.githubusercontent.com`, on a per-release orphan branch
+`artifacts-<version>` under `artifacts/bai-config/<version>/`. Releases still carry the same
+archives for direct download, but krew does not use them: GitHub returns 404 for release assets
+on a private repository under every form of token auth, whereas `raw.githubusercontent.com`
+honours a PAT. This keeps installs working unchanged if the repository is ever made private.
+Only the most recent few artifact branches are kept — deleting a branch makes its blobs
+unreachable, so archives do not accumulate.
+
+If the repository is private, generate a fine-grained PAT with read-only `contents` and
+`metadata`, add it to `~/.netrc`, and pass `--enable-netrc`:
+
+```text
+machine raw.githubusercontent.com
+  login token
+  password <fine-grained github PAT>
+```
+
+```shell
+$ kubectl krew install --enable-netrc bai-config/bai-config
+```
+
+The flag is needed on `kubectl krew upgrade` too. Note that git LFS is not an option here:
+`raw.githubusercontent.com` serves the pointer file rather than the object, and krew has no way
+to resolve it.
+
 ## Installation as kubectl plugin
 
 You can also use kubectl-bai-config as kubectl plugin. The name as kubectl plugin is `bai-config`.
