@@ -1,6 +1,6 @@
 module github.com/BrightDotAi/kubectl-bai-config
 
-go 1.18
+go 1.23
 
 require (
 	github.com/charmbracelet/bubbles v0.10.3

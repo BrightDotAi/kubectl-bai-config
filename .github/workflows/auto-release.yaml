@@ -9,16 +9,20 @@ on:
 
 jobs:
   publish:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       # Get PR from merged commit to the default branch
-      - uses: actions-ecosystem/action-get-merged-pull-request@v1
+      - name: Get merged pull request
         id: get-merged-pull-request
-        with:
-          github_token: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
+        env:
+          GH_TOKEN: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
+        run: |
+          labels=$(gh api "repos/${{ github.repository }}/commits/${{ github.sha }}/pulls" \
+            --jq '[.[].labels[].name] | join(",")')
+          echo "labels=${labels}" >> "$GITHUB_OUTPUT"
 
       # Publish Release
-      - uses: release-drafter/release-drafter@v5
+      - uses: release-drafter/release-drafter@v6
         id: release-drafter
         with:
           publish: ${{ !contains(steps.get-merged-pull-request.outputs.labels, 'no-release') }}
@@ -28,19 +32,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
 
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v1
+        uses: actions/setup-go@v5
         with:
-          go-version: 1.18
+          go-version-file: go.mod
 
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@v1
+        uses: goreleaser/goreleaser-action@v6
         with:
-          version: latest
-          args: release --rm-dist
+          version: "~> v2"
+          args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
