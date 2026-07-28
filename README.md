@@ -110,6 +110,33 @@ Without a `spacectl` profile it falls back to the browser login and prints
 `Opening browser to https://brightdotai.app.spacelift.io/cli_login?key=...` instead of the
 first line. After confirming, it prompts for the kubeconfig path — `[tab]` fills the suggestion.
 
+## Releasing
+
+Releases are driven by merging to `main`; there is no tag to push by hand.
+
+1. **Merge a PR into `main`.** Its labels choose the version bump — `major`, or `minor` /
+   `enhancement`, otherwise patch. Label it `no-release` to skip publishing entirely.
+2. **`auto-release.yaml` runs on the merge commit** and does, in order:
+   - release-drafter publishes the GitHub release and its tag
+   - GoReleaser builds the five platform archives, uploads them to the release, and generates
+     the krew manifest **without publishing it**
+   - the archives are pushed to `refs/artifacts/<tag-with-dashes>`
+   - every URI in the generated manifest is re-downloaded and its sha256 compared
+   - a `chore/krew-manifest-<tag>` PR is opened against `main`
+   - artifact refs are pruned to the most recent three
+3. **Merge the manifest PR.** This is the moment the new version becomes installable — until
+   then the index still points at the previous release.
+4. Users pick it up with `kubectl krew update && kubectl krew upgrade bai-config`.
+
+The split exists so a half-finished release cannot break installs: the index only moves after
+the archives are proven fetchable. If the workflow fails at any step before the manifest PR,
+`main` is untouched and users stay on the previous version — **do not merge a manifest PR from
+a failed run**. Re-running the job is safe and idempotent; the artifact ref is force-updated,
+so a retry repairs rather than conflicts.
+
+`main` is PR-only under the org's SOC2 ruleset, which is why step 3 is a merge and not an
+automatic push.
+
 ## Development: Build and Run
 
 ```shell
