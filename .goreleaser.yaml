@@ -1,3 +1,4 @@
+version: 2
 project_name: kubectl-bai-config
 before:
   hooks:
@@ -20,18 +21,25 @@ builds:
         goarch: arm64
 
 archives:
-  - builds:
+  - ids:
       - kubectl-bai-config
     name_template: "{{ .ProjectName }}_{{ .Tag }}_{{ .Os }}_{{ .Arch }}{{ if .Arm }}v{{ .Arm }}{{ end }}"
     wrap_in_directory: "false"
-    format: tar.gz
+    formats:
+      - tar.gz
     files: []
 
 krews:
   - name: bai-config
-    index:
+    # generate the manifest but never publish it: main is PR-only under the SOC2 ruleset,
+    # and the index must not move until the archives it points at are proven fetchable
+    skip_upload: "true"
+    repository:
       owner: BrightDotAi
       name: kubectl-bai-config
+    # refs/artifacts/* is outside refs/heads/*, so `krew update` never fetches it;
+    # the ref name must stay dot-free or raw.githubusercontent.com 404s on ref/path split
+    url_template: "https://raw.githubusercontent.com/BrightDotAi/kubectl-bai-config/refs/artifacts/{{ replace .Tag \".\" \"-\" }}/artifacts/bai-config/{{ .Tag }}/{{ .ArtifactName }}"
     homepage: https://github.com/BrightDotAi/kubectl-bai-config
     short_description: Generate a kubeconfig for access to BrightAI Kubernetes clusters via Okta OIDC
     description: |

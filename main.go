@@ -2,11 +2,14 @@ package main
 
 import (
 	"encoding/base64"
+	"flag"
 	"fmt"
 	"os"
 	"os/user"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -57,29 +60,104 @@ type model struct {
 	cursor                 int              // which cluster item our cursor is pointing at
 	selected               map[int]struct{} // which cluster items are selected
 	kubeconfigPathInput    textinput.Model
+	height                 int  // terminal height, from tea.WindowSizeMsg
+	backup                 bool // back up an existing kubeconfig before overwriting
+	written                bool // guards writeKubeConfig against firing twice
 }
 
 func main() {
-	p := tea.NewProgram(initialModel())
+	authMethod := flag.String("auth", "auto", "Spacelift auth method: auto, api (spacectl profile), or browser")
+	selectAll := flag.Bool("select-all", false, "pre-select all clusters")
+	writeAll := flag.Bool("write-all", false, "skip the interactive UI and write all clusters")
+	kubeconfigPath := flag.String("kubeconfig", DEFAULT_KUBECONFIG_PATH, "kubeconfig path to write with --write-all")
+	backup := flag.Bool("backup", true, "back up an existing kubeconfig before overwriting")
+	flag.Parse()
+	switch *authMethod {
+	case "auto", "api", "browser":
+	default:
+		fmt.Printf("invalid --auth value %q (want auto, api, or browser)\n", *authMethod)
+		os.Exit(1)
+	}
+
+	if *writeAll {
+		m := initialModel(*authMethod, true, *backup)
+		m.kubeconfigPathInput.SetValue(*kubeconfigPath)
+		if err := m.writeKubeConfig(); err != nil {
+			fmt.Printf("Could not write kubeconfig: %s\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
+	p := tea.NewProgram(initialModel(*authMethod, *selectAll, *backup))
 	if err := p.Start(); err != nil {
 		fmt.Printf("Alas, there's been an error: %v", err)
 		os.Exit(1)
 	}
 }
 
-func initialModel() model {
-	// Login To Spacelift
+// loginUsingWebBrowser runs the interactive Spacelift browser login.
+func loginUsingWebBrowser() {
 	storedCredentials := spacectlSession.StoredCredentials{
 		Type:     spacectlSession.CredentialsTypeAPIToken,
 		Endpoint: SPACELIFT_ENDPOINT,
 	}
-	profile.LoginUsingWebBrowser(&storedCredentials)
+	if err := profile.LoginUsingWebBrowser(&storedCredentials); err != nil {
+		fmt.Printf("Could not login to Spacelift: %v\n", err)
+		os.Exit(1)
+	}
 	if err := authenticated.Ensure(storedCredentials); err != nil {
 		fmt.Printf("Could not login to Spacelift: %v", err)
 		os.Exit(1)
 	}
+}
+
+// spacectlProfileCredentials returns the current spacectl profile's credentials
+// when it targets SPACELIFT_ENDPOINT, nil otherwise.
+func spacectlProfileCredentials() *spacectlSession.StoredCredentials {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	manager, err := spacectlSession.NewProfileManager(filepath.Join(home, spacectlSession.SpaceliftConfigDirectory))
+	if err != nil {
+		return nil
+	}
+	p := manager.Current()
+	if p == nil || p.Credentials == nil ||
+		strings.TrimRight(p.Credentials.Endpoint, "/") != strings.TrimRight(SPACELIFT_ENDPOINT, "/") {
+		return nil
+	}
+	return p.Credentials
+}
+
+func initialModel(authMethod string, selectAll, backup bool) model {
+	// Login To Spacelift: prefer the spacectl profile, browser as fallback
+	usedProfile := false
+	if authMethod != "browser" {
+		if creds := spacectlProfileCredentials(); creds != nil {
+			if err := authenticated.Ensure(*creds); err == nil {
+				fmt.Println("Using spacectl profile credentials")
+				usedProfile = true
+			} else if authMethod == "api" {
+				fmt.Printf("Could not login with the spacectl profile: %v\n", err)
+				os.Exit(1)
+			}
+		} else if authMethod == "api" {
+			fmt.Printf("--auth=api: no spacectl profile for %s — run `spacectl profile login` first\n", SPACELIFT_ENDPOINT)
+			os.Exit(1)
+		}
+	}
+	if !usedProfile {
+		loginUsingWebBrowser()
+	}
 
 	query, err := stack.GetStackOutputs()
+	if err != nil && usedProfile && authMethod == "auto" {
+		// profile token may be stale (browser-type profiles) — retry via browser
+		loginUsingWebBrowser()
+		query, err = stack.GetStackOutputs()
+	}
 	if err != nil {
 		fmt.Printf("Could not get stack outputs: %v", err)
 		os.Exit(1)
@@ -103,14 +181,22 @@ func initialModel() model {
 	ti.CharLimit = 1024
 	ti.Width = 20
 
+	selected := make(map[int]struct{})
+	if selectAll {
+		for i := range clusters {
+			selected[i] = struct{}{}
+		}
+	}
+
 	return model{
 		view:                   ClusterSelectView,
 		client:                 authenticated.Client,
 		clusters:               clusters,
 		app_oauth_client_id:    app_oauth_client_id,
 		auth_server_issuer_url: auth_server_issuer_url,
-		selected:               make(map[int]struct{}),
+		selected:               selected,
 		kubeconfigPathInput:    ti,
+		backup:                 backup,
 	}
 }
 
@@ -122,6 +208,11 @@ func (m model) Init() tea.Cmd {
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	cmd = nil
+
+	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		m.height = size.Height
+		return m, nil
+	}
 
 	switch m.view {
 	case ClusterSelectView:
@@ -176,7 +267,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
 			switch msg.Type {
+			case tea.KeyTab, tea.KeyRight:
+				if m.kubeconfigPathInput.Value() == "" {
+					m.kubeconfigPathInput.SetValue(DEFAULT_KUBECONFIG_PATH)
+					m.kubeconfigPathInput.CursorEnd()
+				}
+
 			case tea.KeyEnter:
+				if m.kubeconfigPathInput.Value() == "" {
+					// empty input previously wrote the kubeconfig to path ""
+					m.kubeconfigPathInput.SetValue(DEFAULT_KUBECONFIG_PATH)
+				}
 				fmt.Printf("SELECTED PATH: %s", m.kubeconfigPathInput.Value())
 				m.view = KubeConfigWriteView
 
@@ -187,6 +288,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.kubeconfigPathInput, cmd = m.kubeconfigPathInput.Update(msg)
 
 	case KubeConfigWriteView:
+		// a queued message can re-enter before quitMsg lands — a second write
+		// would clobber the just-made backup with the freshly generated config
+		if m.written {
+			return m, tea.Quit
+		}
+		m.written = true
 		err := m.writeKubeConfig()
 		if err != nil {
 			fmt.Printf("Could not write kubeconfig: %s\n", err)
@@ -212,8 +319,13 @@ func (m model) View() string {
 
 		s += "Use the right arrow key or spacebar to select clusters to add to the kubeconfig:\n"
 
-		// Iterate over our clusters
-		for i, cluster := range m.clusters {
+		// Window the list to the terminal height — a view taller than the screen
+		// makes the bubbletea inline renderer drop the lines that scroll off.
+		start, end := listWindow(len(m.clusters), m.cursor, m.height)
+		if start > 0 {
+			s += fmt.Sprintf("  ↑ %d more\n", start)
+		}
+		for i := start; i < end; i++ {
 
 			// Is the cursor pointing at this cluster?
 			cursor := " " // no cursor
@@ -228,7 +340,10 @@ func (m model) View() string {
 			}
 
 			// Render the row
-			s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, cluster.id)
+			s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, m.clusters[i].id)
+		}
+		if end < len(m.clusters) {
+			s += fmt.Sprintf("  ↓ %d more\n", len(m.clusters)-end)
 		}
 
 		// The footer
@@ -241,15 +356,19 @@ func (m model) View() string {
 		s += fmt.Sprintf("app_oauth_client_id: %s\n", m.app_oauth_client_id)
 		s += fmt.Sprintf("auth_server_issuer_url: %s\n\n", m.auth_server_issuer_url)
 		s += "Selected clusters:\n"
-		for _, cluster := range m.clusters {
+		_, end := listWindow(len(m.clusters), 0, m.height)
+		for _, cluster := range m.clusters[:end] {
 			s += "\t" + cluster.id + "\n"
+		}
+		if end < len(m.clusters) {
+			s += fmt.Sprintf("\t… and %d more\n", len(m.clusters)-end)
 		}
 
 		// kubeconfig path text input
 		s += fmt.Sprintf("Enter the path to the kubeconfig file to write to: %s\n", m.kubeconfigPathInput.View())
 
 		// The footer
-		s += "\nPress [enter] to confirm.\n"
+		s += "\nPress [tab] to fill the suggested path, [enter] to confirm.\n"
 		s += "\nPress [CTRL+C] or [ESC] to quit.\n"
 	case KubeConfigWriteView:
 	}
@@ -309,8 +428,30 @@ const (
 )
 
 func (m model) writeKubeConfig() error {
+	if len(m.clusters) == 0 {
+		return fmt.Errorf("no clusters selected")
+	}
 	kubeconfigPath := expandPath(m.kubeconfigPathInput.Value())
-	fmt.Printf("Writing kubeconfig to %s \n", kubeconfigPath)
+	if m.backup {
+		if _, err := os.Stat(kubeconfigPath); err == nil {
+			// rename the symlink target, not the symlink, so dotfiles setups survive
+			backupSrc := kubeconfigPath
+			if resolved, err := filepath.EvalSymlinks(kubeconfigPath); err == nil {
+				backupSrc = resolved
+			}
+			// not time.Format: "_2" in a layout is the padded-day token and corrupts the name
+			t := time.Now()
+			// seconds included: os.Rename clobbers, so a minute-granular name lets a second
+			// run in the same minute overwrite the first backup with the config it just wrote
+			backupPath := backupSrc + fmt.Sprintf("__%04d_%02d_%02d__%02d_%02d_%02d",
+				t.Year(), t.Month(), t.Day(), t.Hour(), t.Minute(), t.Second())
+			if err := os.Rename(backupSrc, backupPath); err != nil {
+				return fmt.Errorf("could not back up existing kubeconfig: %w", err)
+			}
+			fmt.Printf("Backed up existing kubeconfig to %s\n", backupPath)
+		}
+	}
+	fmt.Printf("Writing kubeconfig with %d clusters to %s\n", len(m.clusters), kubeconfigPath)
 	// Construct the kubeconfig
 	kubeconfig := api.NewConfig()
 	kubeconfig.Kind = "Config"
@@ -323,7 +464,7 @@ func (m model) writeKubeConfig() error {
 			APIVersion: "client.authentication.k8s.io/v1beta1",
 			Command:    "kubectl",
 			Env:        []api.ExecEnvVar{},
-			Args: []string{
+			Args: append([]string{
 				"oidc-login",
 				"get-token",
 				"--oidc-issuer-url=" + m.auth_server_issuer_url,
@@ -332,7 +473,7 @@ func (m model) writeKubeConfig() error {
 				"--oidc-extra-scope=offline_access",
 				"--oidc-extra-scope=profile",
 				"--oidc-extra-scope=openid",
-			},
+			}, browserCommandArgs()...),
 			InteractiveMode:    api.IfAvailableExecInteractiveMode,
 			ProvideClusterInfo: false,
 		},
@@ -350,6 +491,54 @@ func (m model) writeKubeConfig() error {
 	kubeconfig.CurrentContext = m.clusters[0].id
 
 	return clientcmd.WriteToFile(*kubeconfig, kubeconfigPath)
+}
+
+// browserCommandArgs writes a background-open wrapper and returns the kubelogin arg
+// pointing at it (macOS only; kubelogin execs the value as a single binary, no shell).
+func browserCommandArgs() []string {
+	if runtime.GOOS != "darwin" {
+		return nil
+	}
+	usr, err := user.Current()
+	if err != nil {
+		return nil
+	}
+	wrapper := filepath.Join(usr.HomeDir, ".kube", "bai-browser-open")
+	script := "#!/bin/sh\n# Written by kubectl bai-config: open the OIDC login URL without stealing focus.\nexec /usr/bin/open -g \"$@\"\n"
+	if err := os.MkdirAll(filepath.Dir(wrapper), 0o755); err != nil {
+		return nil
+	}
+	if err := os.WriteFile(wrapper, []byte(script), 0o755); err != nil {
+		return nil
+	}
+	_ = os.Chmod(wrapper, 0o755) // WriteFile perm applies only on create
+	return []string{"--browser-command=" + wrapper}
+}
+
+// listWindow returns the [start, end) item range that keeps the cursor visible;
+// 14 chrome lines reserved — one line over terminal height corrupts the repaint.
+func listWindow(total, cursor, height int) (int, int) {
+	visible := total
+	if height > 0 && height-14 < visible {
+		visible = height - 14
+		if visible < 3 {
+			visible = 3
+		}
+		if visible > total {
+			visible = total
+		}
+	}
+	start := 0
+	if cursor >= visible {
+		start = cursor - visible + 1
+	}
+	if start+visible > total {
+		start = total - visible
+		if start < 0 {
+			start = 0
+		}
+	}
+	return start, start + visible
 }
 
 func contains(s []string, e string) bool {
