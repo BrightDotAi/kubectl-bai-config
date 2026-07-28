@@ -72,6 +72,44 @@ jobs:
           git push --force origin "${commit}:refs/artifacts/${TAG//./-}"
           echo "published refs/artifacts/${TAG//./-}"
 
+      # Gate on the archives actually being fetchable before the index can point at them.
+      - name: Verify published archives
+        run: |
+          set -euo pipefail
+          awk '/uri:/{u=$NF} /sha256:/{print u, $NF}' dist/krew/bai-config.yaml \
+            | while read -r uri want; do
+                got="$(curl -fsSL --retry 3 --retry-delay 5 "${uri}" | sha256sum | cut -d' ' -f1)"
+                [ "${got}" = "${want}" ] || { echo "::error::${uri} has ${got}, manifest expects ${want}"; exit 1; }
+                echo "ok $(basename "${uri}")"
+              done
+
+      # Only now may the index move. main is PR-only under the SOC2 ruleset (no bypass
+      # actors), so the manifest lands as a PR rather than a push.
+      - name: Open krew manifest PR
+        env:
+          TAG: ${{ steps.release-drafter.outputs.tag_name }}
+          GH_TOKEN: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
+        run: |
+          set -euo pipefail
+          branch="chore/krew-manifest-${TAG}"
+          git fetch origin main
+          git switch -c "${branch}" origin/main
+          cp dist/krew/bai-config.yaml plugins/bai-config.yaml
+          git add plugins/bai-config.yaml
+          if git diff --cached --quiet; then
+            echo "manifest already current on main, nothing to open"
+            exit 0
+          fi
+          git commit -m "chore: update krew manifest for ${TAG}"
+          git push --force origin "${branch}"
+          if [ -n "$(gh pr list --head "${branch}" --state open --json number --jq '.[].number')" ]; then
+            echo "PR already open for ${branch}"
+          else
+            gh pr create --base main --head "${branch}" \
+              --title "chore: update krew manifest for ${TAG}" \
+              --body "Publishes the krew manifest for ${TAG}. Archives are already live on \`refs/artifacts/${TAG//./-}\` and every checksum was verified before this PR was opened."
+          fi
+
       # Deleting the ref makes its blobs unreachable, so archives do not accumulate.
       - name: Prune superseded artifact refs
         env:

@@ -42,6 +42,12 @@ release assets on a private repository under every form of token auth, whereas
 `raw.githubusercontent.com` honours a PAT. This keeps installs working unchanged if the
 repository is ever made private.
 
+The index itself moves only by pull request. `main` is PR-only under the org's SOC2 ruleset,
+which has no bypass actors, so the release workflow cannot push `plugins/bai-config.yaml`
+directly. It publishes the archives first, verifies every checksum over the network, and only
+then opens a manifest PR — a release that fails midway leaves an unmerged PR rather than an
+index pointing at archives that were never uploaded.
+
 `refs/artifacts/*` deliberately sits outside `refs/heads/*`. Krew clones this repository as its
 index with a plain `git clone`, which fetches every branch — so archives on a branch would land
 on every user's disk on each `kubectl krew update`. A custom ref namespace is never fetched,

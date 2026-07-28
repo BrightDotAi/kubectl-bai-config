@@ -31,6 +31,9 @@ archives:
 
 krews:
   - name: bai-config
+    # generate the manifest but never publish it: main is PR-only under the SOC2 ruleset,
+    # and the index must not move until the archives it points at are proven fetchable
+    skip_upload: "true"
     repository:
       owner: BrightDotAi
       name: kubectl-bai-config
