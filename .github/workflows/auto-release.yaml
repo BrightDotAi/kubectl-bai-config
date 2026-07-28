@@ -22,7 +22,7 @@ jobs:
           echo "labels=${labels}" >> "$GITHUB_OUTPUT"
 
       # Publish Release
-      - uses: release-drafter/release-drafter@v6
+      - uses: release-drafter/release-drafter@v7
         id: release-drafter
         with:
           publish: ${{ !contains(steps.get-merged-pull-request.outputs.labels, 'no-release') }}
@@ -32,18 +32,18 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.PAT_ORG_ADMIN_REPO_ALL }}
 
       - name: Setup Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
 
       - name: GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@v7
         with:
           version: "~> v2"
           args: release --clean
